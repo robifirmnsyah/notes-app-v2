@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, X, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import axios from 'axios';
 
-// Konfigurasi URL Backend Anda (Dinonaktifkan untuk versi Dummy).
-const API_BASE_URL = 'http://localhost:8000';
-
-const DUMMY_NOTES = [
-  {
-    id: 1,
-    title: 'Catatan Pertama Dummy',
-    body: 'Ini adalah contoh catatan. Anda bisa mengedit atau menghapusnya.',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
+const API_BASE_URL = '/api';
 
 export default function App() {
-  const [notes, setNotes] = useState(DUMMY_NOTES);
+  const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -30,21 +20,22 @@ export default function App() {
     fetchNotes();
   }, []);
 
-  // Handler: Get All Notes (Versi Dummy)
+  // Handler: Get All Notes
   const fetchNotes = async () => {
     setIsLoading(true);
     setError(null);
-    
-    // Simulasi waktu tunggu (delay) seperti mengambil data dari internet
-    setTimeout(() => {
-      // Mengurutkan note terbaru di atas
-      const sortedData = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notes`);
+      const sortedData = response.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setNotes(sortedData);
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setIsLoading(false);
-    }, 600);
+    }
   };
 
-  // Handler: Create & Update (Versi Dummy)
+  // Handler: Create & Update
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.body.trim()) return;
@@ -52,41 +43,39 @@ export default function App() {
     setIsSaving(true);
     const isEditing = !!currentNote;
 
-    // Simulasi waktu tunggu (delay)
-    setTimeout(() => {
-      const now = new Date().toISOString();
-      
+    try {
       if (isEditing) {
-        // Proses Update
-        setNotes(notes.map(note => 
-          note.id === currentNote.id 
-            ? { ...note, title: formData.title, body: formData.body, updated_at: now } 
-            : note
-        ));
-      } else {
-        // Proses Create
-        const newNote = {
-          id: Date.now(), // Menggunakan timestamp sebagai ID unik dummy
+        const response = await axios.put(`${API_BASE_URL}/notes/${currentNote.id}`, {
           title: formData.title,
-          body: formData.body,
-          created_at: now,
-          updated_at: now
-        };
-        setNotes([newNote, ...notes]);
+          body: formData.body
+        });
+        setNotes(notes.map(note => note.id === currentNote.id ? response.data : note));
+      } else {
+        const response = await axios.post(`${API_BASE_URL}/notes`, {
+          title: formData.title,
+          body: formData.body
+        });
+        setNotes([response.data, ...notes]);
       }
-
-      setIsSaving(false);
       closeModal();
-    }, 500);
+    } catch (err) {
+      alert('Gagal menyimpan catatan: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Handler: Delete (Versi Dummy)
+  // Handler: Delete
   const handleDelete = async (id, e) => {
     e.stopPropagation(); // Mencegah card ikut terklik
     if (!window.confirm('Apakah Anda yakin ingin menghapus catatan ini?')) return;
 
-    // Hapus dari state lokal
-    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
+    try {
+      await axios.delete(`${API_BASE_URL}/notes/${id}`);
+      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
+    } catch (err) {
+      alert('Gagal menghapus catatan: ' + err.message);
+    }
   };
 
   // Helper function: Format Tanggal
